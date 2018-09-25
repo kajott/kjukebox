@@ -3,7 +3,7 @@
 `kjukebox` plays videos in a specified directory in fullscreen using some standard media player application (MPV, VLC, MPC-HC, or OMXPlayer on Raspberry Pi). Its main purpose is automated playback in random order, but playlists can also be specified manuelly using the built-in web interface. A text-based announcement screen is shown between videos.
 
 
-## Raspberry Pi Installation
+## Raspberry Pi installation
 
 kjukebox can be used as a fully-automated jukebox system on Raspberry Pi devices (any generation), including a web interface and even (optional) Samba access to the data directory. To set this up, do the following:
 
@@ -18,3 +18,12 @@ kjukebox can be used as a fully-automated jukebox system on Raspberry Pi devices
 5. Boot the RasPi again. It will automatically start the video show after a few seconds of delay. To inhibit this, press Ctrl+C during booting when the "Jukebox will start in 10 seconds" prompt appears and log in normally on another console (by pressing Alt+F2, for example).
 
 6. Control the video show remotely using the HTTP URL that is shown between videos.
+
+
+### Downloading videos
+
+If you want to download video files from YouTube or other streaming sites to be used with a Raspberry Pi-based video jukebox, here's an appropriate configuration for [youtube-dl](http://rg3.github.io/youtube-dl/):
+
+```
+youtube-dl -i -w -f "bestvideo[vcodec^=avc1][width<=1920]+bestaudio[acodec^=mp4a]/best[ext=mp4][width<=1920]/mp4"
+```
