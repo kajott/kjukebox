@@ -9,7 +9,7 @@ towards lesser-played tracks.
 
 Position display inside tracks and seeking is currently not possible.
 """
-__version__ = "1.0"
+__version__ = "1.0.1"
 __author__ = "Martin Fiedler <keyj@emphy.de>"
 
 import sys, os, argparse, random, collections, math
@@ -142,7 +142,7 @@ def setup_player(name=None, fullscreen=True):
 
 StatusFont = dict(zip((
 '0'    ,'1'  ,'2'    ,'3'    ,'4'    ,'5'    ,'6'    ,'7'    ,'8'    ,'9'    ,'.' ,':' ,'http://'
-,'\0'), zip(*(line.split('j') for line in r'''
+,'\0'), zip(*(line.split('j') for line in unicode(r'''
   ###  j  #  j  ###  j ##### j   #   j ##### j  ###  j ##### j  ###  j  ###  j    j    j #      #   #               #  # j
  #   # j ##  j #   # j    #  j  #    j #     j #     j #   # j #   # j #   # j    j ## j #      #   #       ## ##   #  # j
  #   # j  #  j    #  j  ###  j #  #  j ####  j ####  j    #  j  ###  j #   # j    j ## j # ##  ### ### ###  ## ##  #  #  j
@@ -150,7 +150,7 @@ StatusFont = dict(zip((
  #   # j  #  j  #    j #   # j    #  j #   # j #   # j   #   j #   # j     # j ## j ## j #   #  #   #  ###  ## ## #  #   j
   ###  j ### j ##### j  ###  j    #  j  ###  j  ###  j   #   j  ###  j  ###  j ## j ## j #   #   #   # #    ## ## #  #   j
        j     j       j       j       j       j       j       j       j       j    j    j               #                 j
-'''.replace('\r', '').strip('\n').split('\n')))))
+'''.replace('\r', '').strip('\n')).replace('#', unichr(0x2592)).split('\n')))))
 StatusFontHeight = len(StatusFont.values()[0])
 
 class Distributor(object):
@@ -190,13 +190,16 @@ class StatusScreen(object):
                 del parts[i]
             else:
                 i += 1
+        extra_line = self.height >= (len(parts) * (StatusFontHeight + 1) + 12)
 
         # glue parts together into a string
         lines = []
         for p in parts:
             extra = max((self.width - len(p[0])) / 2, 0) * ' '
             lines.extend((extra + l[-self.width:].rstrip()) for l in p)
-        self.inter_lines = '\n'.join(lines).rstrip() + '\n'
+            if extra_line:
+                lines.append("")
+        self.inter_lines = '\n'.join(lines).rstrip().encode(sys.stdout.encoding, 'replace') + '\n'
 
         # distribute extra lines
         d = Distributor(max(self.height - 6 - self.inter_lines.count('\n'), 0))
