@@ -9,12 +9,13 @@ towards lesser-played tracks.
 
 Position display inside tracks and seeking is currently not possible.
 """
-__version__ = "1.0.2"
+__version__ = "1.0.3"
 __author__ = "Martin Fiedler <keyj@emphy.de>"
 
 import sys, os, argparse, random, collections, math
 import time, threading, subprocess, socket
 import BaseHTTPServer, SocketServer
+import zlib
 try:
     import _winreg
 except ImportError:
@@ -307,6 +308,8 @@ class ListManager(object):
     histmax = DefaultHistoryDepth
     retcode = None
     first_in_session = True
+    u_tracklist = None
+    z_tracklist = None
 
     @classmethod
     def load_state(self, filename=None):
@@ -379,8 +382,8 @@ class ListManager(object):
             self._locked_rescan()
     @classmethod
     def _locked_rescan(self):
-        self.scan_tag = str(int(time.time()))
         index = dict(f._index_entry() for f in self.files)
+        n_new = 0
         for base, dirs, files in os.walk(self.root):
             assert base.startswith(self.root)
             base = base[len(self.root):].lstrip('\\/')
@@ -394,9 +397,17 @@ class ListManager(object):
                         f = MediaFile(f, key)
                         self.files.append(f)
                         index[key] = f
+                        n_new += 1
+        n_del = len(self.files)
         self.files = [f for f in self.files if f.present]
+        n_del -= len(self.files)
         self.files.sort(key=lambda f: f.key)
         self.playlist = [f for f in self.playlist if f.present]
+        if n_new or n_del:
+            log("rescan finished: %d new track(s), %d track(s) deleted" % (n_new, n_del))
+            self.scan_tag = str(int(time.time()))
+            self.u_tracklist = '\n'.join(f.fmt() for f in self.files)
+            self.z_tracklist = zlib.compress(self.u_tracklist, 9)
         self._locked_refill()
 
     @classmethod
@@ -404,6 +415,11 @@ class ListManager(object):
         with self.mutex:
             for f in self.files:
                 yield f.fmt()
+
+    @classmethod
+    def get_tracklist_str(self, deflate=False):
+        with self.mutex:
+            return self.z_tracklist if deflate else self.u_tracklist
 
     @classmethod
     def get_playlist(self):
@@ -524,7 +540,7 @@ class ListManager(object):
             if always_add_to_playcounts or not(self.started_at) or ((time.time() - self.started_at) >= MinPlayTime):
                 self.playcounts[self.current.key] += 1
             else:
-                log("not adding to playcounts (delta-T = %.2f)" % (time.time() - self.started_at))
+                log("not adding to playcounts (only played for %.1f seconds)" % (time.time() - self.started_at))
             if not self.running:
                 self._locked_checkpoint()
             self.current = None
@@ -1005,6 +1021,11 @@ li.autoplay {
 </svg>'''),
 }
 
+DeflatedStaticHTMLContent = {}
+def mod_gzip():
+    for key, data in StaticHTMLContent.iteritems():
+        DeflatedStaticHTMLContent[key] = zlib.compress(data[1])
+
 ################################################################################
 
 class WebServer(SocketServer.ThreadingMixIn, BaseHTTPServer.HTTPServer):
@@ -1019,6 +1040,7 @@ def _get_etag():
 class WebRequestHandler(BaseHTTPServer.BaseHTTPRequestHandler):
     etag = _get_etag()
     quitcmds = {}
+    server_version = "kjukebox/" + __version__
 
     def do_GET(self):
         self._response_sent = False
@@ -1032,7 +1054,14 @@ class WebRequestHandler(BaseHTTPServer.BaseHTTPRequestHandler):
             if self.headers.get("If-None-Match") == self.etag:
                 return self.respond(304)
             ctype, data = StaticHTMLContent[path]
-            return self.respond(200, ctype, data, headers={"ETag": self.etag})
+            headers = {"ETag": self.etag}
+            if self.can_deflate():
+                try:
+                    data = DeflatedStaticHTMLContent[path]
+                    headers["Content-Encoding"] = "deflate"
+                except KeyError:
+                    pass
+            return self.respond(200, ctype, data, headers=headers)
 
         method = getattr(self, "cmd_" + path, None)
         if method:
@@ -1063,13 +1092,19 @@ class WebRequestHandler(BaseHTTPServer.BaseHTTPRequestHandler):
     def respond_with_list(self, data, headers={}):
         self.respond(200, "text/plain; charset=utf-8", '\n'.join(data), headers)
 
+    def can_deflate(self):
+        return ("deflate" in self.headers.get("Accept-Encoding", ""))
+
     def cmd_tracklist(self, params):
         etag = ListManager.scan_tag
         if not etag:
             return self.respond_with_list(ListManager.get_tracklist())
         if self.headers.get("If-None-Match") == etag:
             return self.respond(304)
-        self.respond_with_list(ListManager.get_tracklist(), {"ETag": etag})
+        headers = {"ETag": etag}
+        deflate = self.can_deflate()
+        if deflate: headers["Content-Encoding"] = "deflate"
+        self.respond(200, "text/plain; charset=utf-8", ListManager.get_tracklist_str(deflate), headers)
 
     def cmd_playlist(self, params):  self.respond_with_list(ListManager.get_playlist())
     def cmd_history(self, params):   self.respond_with_list(ListManager.get_history())
@@ -1158,9 +1193,11 @@ if __name__ == "__main__":
             parser.error("could not find a player, use --player option to specify one manually")
 
     try:
+        print "starting web server ..."
         httpd = WebServer(('', args.port), WebRequestHandler)
         httpd_thread = threading.Thread(target=httpd.serve_forever)
         httpd_thread.daemon = True
+        mod_gzip()
         httpd_thread.start()
     except EnvironmentError, e:
         log("FATAL: can not start web server - %s" % e, True)
