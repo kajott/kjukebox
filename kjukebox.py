@@ -9,7 +9,7 @@ towards lesser-played tracks.
 
 Position display inside tracks and seeking is currently not possible.
 """
-__version__ = "1.0.1"
+__version__ = "1.0.2"
 __author__ = "Martin Fiedler <keyj@emphy.de>"
 
 import sys, os, argparse, random, collections, math
@@ -163,14 +163,44 @@ class Distributor(object):
 
 class StatusScreen(object):
     @classmethod
-    def init(self, bigtext):
+    def init(self, text=None, logofile=None):
         w, h = get_console_size()
         self.width = w - 1
         self.height = h - 1
 
+        self.inter_lines = (self._render_text(text) if text else self._load_file(logofile)).encode(sys.stdout.encoding, 'replace')
+
+        # distribute extra lines
+        d = Distributor(max(self.height - 6 - self.inter_lines.count('\n'), 0))
+        self.inter_lines = (d.get(4) * "\n") + self.inter_lines + (d.get(3) * "\n")
+        self.pre_gap = d.get(2) * "\n"
+        self.post_gap = d.get() * "\n"
+
+    @classmethod
+    def _load_file(self, filename):
+        try:
+            with open(filename, "rb") as f:
+                data = f.read()
+        except EnvironmentError:
+            return ""
+        try:
+            data = unicode(data, 'utf-8')
+        except UnicodeDecodeError:
+            data = unicode(data, 'windows-1252')
+        lines = data.split('\n')
+        if data.endswith('\n'):
+            del lines[-1]
+        if not lines:
+            return ""
+        lines = map(unicode.rstrip, lines)
+        extra = max((self.width - max(map(len, lines))) / 2, 0) * u' '
+        return u'\n'.join(extra + l[:self.width] for l in lines) + u'\n'
+
+    @classmethod
+    def _render_text(self, text):
         # "render" all parts of the big text into strings
         parts = []
-        for part in bigtext.split('\0'):
+        for part in text.split('\0'):
             rows = [""] * StatusFontHeight
             while part:
                 try:
@@ -195,17 +225,11 @@ class StatusScreen(object):
         # glue parts together into a string
         lines = []
         for p in parts:
-            extra = max((self.width - len(p[0])) / 2, 0) * ' '
+            extra = max((self.width - len(p[0])) / 2, 0) * u' '
             lines.extend((extra + l[-self.width:].rstrip()) for l in p)
             if extra_line:
                 lines.append("")
-        self.inter_lines = '\n'.join(lines).rstrip().encode(sys.stdout.encoding, 'replace') + '\n'
-
-        # distribute extra lines
-        d = Distributor(max(self.height - 6 - self.inter_lines.count('\n'), 0))
-        self.inter_lines = (d.get(4) * "\n") + self.inter_lines + (d.get(3) * "\n")
-        self.pre_gap = d.get(2) * "\n"
-        self.post_gap = d.get() * "\n"
+        return u'\n'.join(lines).rstrip() + u'\n'
 
     @classmethod
     def substatus(self, caption, fill, f):
@@ -282,6 +306,7 @@ class ListManager(object):
     scan_tag = None
     histmax = DefaultHistoryDepth
     retcode = None
+    first_in_session = True
 
     @classmethod
     def load_state(self, filename=None):
@@ -520,7 +545,7 @@ class ListManager(object):
         self.started_at = None
 
     @classmethod
-    def _locked_play(self, set_running=False, show_previous=True):
+    def _locked_play(self, set_running=False):
         if self.current or self.player:
             log("INTERNAL ERROR: attempt to play track while another is still playing", True)
             return
@@ -529,8 +554,9 @@ class ListManager(object):
             self.running = False
             return
         self.current = self.playlist[0]
-        StatusScreen.update(prev=(self.history[-1] if (self.history and show_previous) else None),
+        StatusScreen.update(prev=(self.history[-1] if (self.history and not(self.first_in_session)) else None),
                             next=self.current)
+        self.first_in_session = False
         log("playing '%s'" % self.current.path)
         self._locked_checkpoint()
         del self.playlist[0]
@@ -573,10 +599,10 @@ class ListManager(object):
             self._locked_play(True)
 
     @classmethod
-    def play(self, show_previous=True):
+    def play(self):
         with self.mutex:
             self._locked_stop(True)
-            self._locked_play(True, show_previous=show_previous)
+            self._locked_play(True)
 
     @classmethod
     def stop(self):
@@ -1081,26 +1107,28 @@ if __name__ == "__main__":
         formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("srcdir", metavar="SRCDIR", nargs='?', default='.',
                         help="input directory")
-    parser.add_argument("--version", "-V", action='version', version=__version__)
-    parser.add_argument("--port", "-p", metavar="N", type=int, default=DefaultPort,
+    parser.add_argument("-V", "--version", action='version', version=__version__)
+    parser.add_argument("-p", "--port", metavar="N", type=int, default=DefaultPort,
                         help="web interface port [default: %(default)s]")
-    parser.add_argument("--player", "-x", metavar="EXE",
+    parser.add_argument("-x", "--player", metavar="EXE",
                         help="set player to use (%s) and optional parameters [default: autodetect]" % '/'.join(p.split()[0] for p in Players))
-    parser.add_argument("--windowed", "-w", action='store_true',
+    parser.add_argument("-w", "--windowed", action='store_true',
                         help="do not run video player in fullscreen mode")
-    parser.add_argument("--statefile", "-f", metavar="FILE", default=DefaultStateFile,
+    parser.add_argument("-f", "--statefile", metavar="FILE", default=DefaultStateFile,
                         help="file to save state (history, playlist, play counts) to [default: %(default)s]")
-    parser.add_argument("--autosave", "-a", action='store_true', default=ListManager.autosave,
+    parser.add_argument("-a", "--autosave", action='store_true', default=ListManager.autosave,
                         help="save state file at every played track")
-    parser.add_argument("--autoscan", "-s", action='store_true',
+    parser.add_argument("-s", "--autoscan", action='store_true',
                         help="automatically rescan the input directory at every played track")
-    parser.add_argument("--autorun", "-r", action='store_true',
+    parser.add_argument("-r", "--autorun", action='store_true',
                         help="start playback immediately on initialization")
-    parser.add_argument("--history-depth", "-d", metavar="N", type=int, default=DefaultHistoryDepth,
+    parser.add_argument("-d", "--history-depth", metavar="N", type=int, default=DefaultHistoryDepth,
                         help="only preserve history for the last N tracks [default: %(default)s]")
-    parser.add_argument("--logfile", "-l", metavar="FILE",
+    parser.add_argument("-t", "--ascii", metavar="FILE",
+                        help="display a text file instead of the IP address on the info screen ('-' to disable info screen logo completely)")
+    parser.add_argument("-l", "--logfile", metavar="FILE",
                         help="produce debug logfile")
-    parser.add_argument("--quit-cmds", "-q", metavar="CMD[=EXITCODE][,...]", type=quitcmds, default={},
+    parser.add_argument("-q", "--quit-cmds", metavar="CMD[=EXITCODE][,...]", type=quitcmds, default={},
                         help="define web requests that cause the program to quit")
     args = parser.parse_args()
 
@@ -1139,10 +1167,13 @@ if __name__ == "__main__":
         sys.exit(1)
 
     print "server started at port", args.port
-    stext = "http://\0%s" % get_own_ip()
-    if args.port != 80:
-        stext += "\0:%s" % args.port
-    StatusScreen.init(stext)
+    if args.ascii:
+        StatusScreen.init(logofile=args.ascii)
+    else:
+        stext = "http://\0%s" % get_own_ip()
+        if args.port != 80:
+            stext += "\0:%s" % args.port
+        StatusScreen.init(text=stext)
 
     try:
         print "scanning for files ..."
@@ -1151,7 +1182,7 @@ if __name__ == "__main__":
         print "initial scan finished,", len(ListManager.files), "file(s) found."
 
         if args.autorun:
-            ListManager.play(show_previous=False)
+            ListManager.play()
         else:
             StatusScreen.update()
 
