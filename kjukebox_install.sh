@@ -4,13 +4,10 @@ echo "based on kjukebox that will start playing videos automatically after booti
 echo "or changes options of an existing installation."
 echo
 
+UPSTREAM_URL="https://raw.githubusercontent.com/kajott/kjukebox/master/kjukebox.py"
+
 if [ ! -c /dev/vchiq ] ; then
     echo "FATAL: This script must be run on a Raspberry Pi." >&2
-    exit 1
-fi
-
-if [ ! -e kjukebox.py ] ; then
-    echo "FATAL: kjukebox.py not found!" >&2
     exit 1
 fi
 
@@ -35,6 +32,36 @@ fi
 echo
 
 set -e
+
+###############################################################################
+
+echo "##### installing /usr/local/bin/kjukebox"
+loc="$(dirname $0)/kjukebox.py"
+if [ -x /usr/local/bin/kjukebox ] ; then
+    echo -n "kjukebox is already installed, upgrade to latest version? [y/N] "
+    read dl
+    if [ "$dl" != "y" ] ; then
+        echo "Keeping currently installed version."
+        dl=""
+    fi
+elif [ -e "$loc" ] ; then
+    echo -n "Install latest version instead of the one in $(readlink -f "$loc")? [y/N] "
+    read dl
+    if [ "$dl" != "y" ] ; then
+        echo "Installing local copy."
+        ( set -x ; install -m 755 "$loc" /usr/local/bin/kjukebox )
+        dl=""
+    fi
+else
+    # no binary found at all, need to download a new one anyway
+    dl="y"
+fi
+if [ -n "$dl" ] ; then
+    echo "Downloading latest upstream version of kjukebox ..."
+    ( set -x ; wget -nv -O /usr/local/bin/kjukebox $UPSTREAM_URL )
+    ( set -x ; chmod +x /usr/local/bin/kjukebox )
+fi
+echo
 
 ###############################################################################
 
@@ -118,8 +145,7 @@ read quitcmd
 [ -z "$quitcmd" ] && quitcmd=$quitdefault
 echo
 
-echo "##### installing /usr/local/bin/{kjukebox,autostart_jukebox}"
-( set -x ; install -m 755 kjukebox.py /usr/local/bin/kjukebox )
+echo "##### installing autostart script in /usr/local/bin/autostart_jukebox"
 cat >/usr/local/bin/autostart_jukebox <<EOF
 #!/bin/bash
 

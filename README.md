@@ -11,7 +11,10 @@ kjukebox can be used as a fully-automated jukebox system on Raspberry Pi devices
 
 2. Boot the RasPi from the SD card. You may want to use `sudo raspi-config` to configure the keyboard, timezone and primary user's password before doing anything else.
 
-3. Copy `kjukebox.py` and `kjukebox_install.sh` onto the card in some way (e.g. by installing `git` and cloning this repo) and run `kjukebox_install.sh` which will guide you through the remaining installation process.
+3. Copy `kjukebox_install.sh` onto the RasPi and run it (as root or via `sudo`). This will guide you through the remaining installation process. Or just fetch and run the most recent version directly from GitHub:
+```
+wget https://raw.githubusercontent.com/kajott/kjukebox/master/kjukebox_install.sh && sudo bash kjukebox_install.sh
+```
 
 4. Shut down the RasPi and copy video files into the `JukeboxContent` directory in the FAT32 partition on the SD card. The files must use H.264 Baseline, Main or High Profile up to 1080p resolution. Some slight (and safe) overclocking is applied to make 1080p60 work to some extent, but perfect playback is only guaranteed up to 1080p30 or 720p60.
 
