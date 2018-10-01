@@ -9,7 +9,7 @@ towards lesser-played tracks.
 
 Position display inside tracks and seeking is currently not possible.
 """
-__version__ = "1.0.3"
+__version__ = "1.0.4"
 __author__ = "Martin Fiedler <keyj@emphy.de>"
 
 import sys, os, argparse, random, collections, math
@@ -144,13 +144,13 @@ def setup_player(name=None, fullscreen=True):
 StatusFont = dict(zip((
 '0'    ,'1'  ,'2'    ,'3'    ,'4'    ,'5'    ,'6'    ,'7'    ,'8'    ,'9'    ,'.' ,':' ,'http://'
 ,'\0'), zip(*(line.split('j') for line in unicode(r'''
-  ###  j  #  j  ###  j ##### j   #   j ##### j  ###  j ##### j  ###  j  ###  j    j    j #      #   #               #  # j
- #   # j ##  j #   # j    #  j  #    j #     j #     j #   # j #   # j #   # j    j ## j #      #   #       ## ##   #  # j
- #   # j  #  j    #  j  ###  j #  #  j ####  j ####  j    #  j  ###  j #   # j    j ## j # ##  ### ### ###  ## ##  #  #  j
- #   # j  #  j   #   j     # j ##### j     # j #   # j   #   j #   # j  #### j    j    j ##  #  #   #  #  #        #  #  j
- #   # j  #  j  #    j #   # j    #  j #   # j #   # j   #   j #   # j     # j ## j ## j #   #  #   #  ###  ## ## #  #   j
-  ###  j ### j ##### j  ###  j    #  j  ###  j  ###  j   #   j  ###  j  ###  j ## j ## j #   #   #   # #    ## ## #  #   j
-       j     j       j       j       j       j       j       j       j       j    j    j               #                 j
+  ###  j  #  j  ###  j ##### j   #   j ##### j  ###  j ##### j  ###  j  ###  j   j   j #      #   #             #  # j
+ #   # j ##  j #   # j    #  j  #    j #     j #     j #   # j #   # j #   # j   j   j #      #   #             #  # j
+ #   # j  #  j    #  j  ###  j #  #  j ####  j ####  j    #  j  ###  j #   # j   j # j # ##  ### ### ###  # #  #  #  j
+ #   # j  #  j   #   j     # j ##### j     # j #   # j   #   j #   # j  #### j   j   j ##  #  #   #  #  #      #  #  j
+ #   # j  #  j  #    j #   # j    #  j #   # j #   # j   #   j #   # j     # j   j   j #   #  #   #  ###      #  #   j
+  ###  j ### j ##### j  ###  j    #  j  ###  j  ###  j   #   j  ###  j  ###  j # j # j #   #   #   # #    # # #  #   j
+       j     j       j       j       j       j       j       j       j       j   j   j               #               j
 '''.replace('\r', '').strip('\n')).replace('#', unichr(0x2592)).split('\n')))))
 StatusFontHeight = len(StatusFont.values()[0])
 
@@ -169,7 +169,12 @@ class StatusScreen(object):
         self.width = w - 1
         self.height = h - 1
 
-        self.inter_lines = (self._render_text(text) if text else self._load_file(logofile)).encode(sys.stdout.encoding, 'replace')
+        if logofile:
+            self.inter_lines = self._load_file(logofile)
+        elif text:
+            self.inter_lines = self._render_text(text)
+        else:
+            self.inter_lines = ""
 
         # distribute extra lines
         d = Distributor(max(self.height - 6 - self.inter_lines.count('\n'), 0))
@@ -305,7 +310,7 @@ class ListManager(object):
     autoscan = False
     autosave = (sys.platform == "win32")
     scan_tag = None
-    histmax = DefaultHistoryDepth
+    maxhist = DefaultHistoryDepth
     retcode = None
     first_in_session = True
     u_tracklist = None
@@ -354,7 +359,7 @@ class ListManager(object):
                 state.write("# kjukebox %s state [%s]\n\n" % (__version__, time.strftime("%Y-%m-%d %H:%M:%S")))
                 if self.history or (self.playlist and not(self.is_auto_playlist)):
                     state.write("# history and playlist\n")
-                for f in self.history[-self.histmax:]:
+                for f in self.history[-self.maxhist:]:
                     state.write("-%s\n" % f.key)
                 if not self.is_auto_playlist:
                     for f in self.playlist:
@@ -1124,16 +1129,13 @@ class WebRequestHandler(BaseHTTPServer.BaseHTTPRequestHandler):
 
 ################################################################################
 
-def _quitcmds(s):
-    for s in s.replace(':', '=').split(','):
-        try:
-            cmd, code = map(str.strip, s.split('='))
-        except ValueError:
-            cmd = s.strip()
-            code = 0
-        yield (cmd, int(code))
-def quitcmds(s):
-    return dict(_quitcmds(s))
+def quitcmd(s):
+    try:
+        cmd, code = map(str.strip, s.replace(':', '=').split('='))
+    except ValueError:
+        cmd = s.strip()
+        code = 0
+    return (cmd, int(code))
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(
@@ -1155,23 +1157,23 @@ if __name__ == "__main__":
                         help="save state file at every played track")
     parser.add_argument("-s", "--autoscan", action='store_true',
                         help="automatically rescan the input directory at every played track")
-    parser.add_argument("-r", "--autorun", action='store_true',
+    parser.add_argument("-r", "--autoplay", action='store_true',
                         help="start playback immediately on initialization")
-    parser.add_argument("-d", "--history-depth", metavar="N", type=int, default=DefaultHistoryDepth,
+    parser.add_argument("-d", "--maxhist", metavar="N", type=int, default=DefaultHistoryDepth,
                         help="only preserve history for the last N tracks [default: %(default)s]")
-    parser.add_argument("-t", "--ascii", metavar="FILE",
+    parser.add_argument("-t", "--logo", metavar="FILE",
                         help="display a text file instead of the IP address on the info screen ('-' to disable info screen logo completely)")
     parser.add_argument("-l", "--logfile", metavar="FILE",
                         help="produce debug logfile")
-    parser.add_argument("-q", "--quit-cmds", metavar="CMD[=EXITCODE][,...]", type=quitcmds, default={},
+    parser.add_argument("-q", "--quitcmd", metavar="CMD[=EXITCODE]", type=quitcmd, action='append',
                         help="define web requests that cause the program to quit")
     args = parser.parse_args()
 
     ListManager.set_root(args.srcdir)
     ListManager.autoscan = args.autoscan
     ListManager.autosave = args.autosave
-    ListManager.histmax = args.history_depth
-    WebRequestHandler.quitcmds = args.quit_cmds
+    ListManager.maxhist = args.maxhist
+    WebRequestHandler.quitcmds = dict(args.quitcmd or [])
 
     if args.logfile:
         try:
@@ -1204,13 +1206,17 @@ if __name__ == "__main__":
         sys.exit(1)
 
     print "server started at port", args.port
-    if args.ascii:
-        StatusScreen.init(logofile=args.ascii)
+    if args.logo:
+        StatusScreen.init(logofile=args.logo)
     else:
-        stext = "http://\0%s" % get_own_ip()
-        if args.port != 80:
-            stext += "\0:%s" % args.port
-        StatusScreen.init(text=stext)
+        ip = get_own_ip()
+        if ip.startswith("127.") or (ip == "::1"):
+            StatusScreen.init()
+        else:
+            stext = "http://\0%s" % get_own_ip()
+            if args.port != 80:
+                stext += "\0:%s" % args.port
+            StatusScreen.init(text=stext)
 
     try:
         print "scanning for files ..."
@@ -1218,7 +1224,7 @@ if __name__ == "__main__":
         ListManager.load_state(args.statefile)
         print "initial scan finished,", len(ListManager.files), "file(s) found."
 
-        if args.autorun:
+        if args.autoplay:
             ListManager.play()
         else:
             StatusScreen.update()
