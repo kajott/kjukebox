@@ -9,10 +9,10 @@ towards lesser-played tracks.
 
 Position display inside tracks and seeking is currently not possible.
 """
-__version__ = "1.0.4"
+__version__ = "1.0.5"
 __author__ = "Martin Fiedler <keyj@emphy.de>"
 
-import sys, os, argparse, random, collections, math
+import sys, os, re, argparse, random, collections, math
 import time, threading, subprocess, socket
 import BaseHTTPServer, SocketServer
 import zlib
@@ -33,6 +33,9 @@ DefaultHistoryDepth = 250
 
 ################################################################################
 
+def is_local_ip(ip):
+    return ip.startswith("127.") or (ip == "::1")
+
 def get_own_ip():
     s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     try:
@@ -41,6 +44,17 @@ def get_own_ip():
     except EnvironmentError:
         ip = socket.gethostbyname(socket.gethostname())
     s.close()
+    if is_local_ip(ip) and sys.platform.startswith('linux'):
+        # if we're on a network without Internet connection, the above
+        # methods will fail, and we're forced to do what we tried to
+        # avoid until now: parse the output of "ip addr" ...
+        try:
+            iplist, dummy = subprocess.Popen(["ip", "addr", "show"], stdout=subprocess.PIPE).communicate()
+        except EnvironmentError:
+            iplist = ""
+        iplist = [ip for ip in re.findall(r'^\s+inet\s+([0-9.]+)', iplist, flags=re.M) if not is_local_ip(ip)]
+        if len(iplist) == 1:
+            ip = iplist[0]
     return ip
 
 g_nulldev = None
@@ -1210,7 +1224,7 @@ if __name__ == "__main__":
         StatusScreen.init(logofile=args.logo)
     else:
         ip = get_own_ip()
-        if ip.startswith("127.") or (ip == "::1"):
+        if is_local_ip(ip):
             StatusScreen.init()
         else:
             stext = "http://\0%s" % get_own_ip()

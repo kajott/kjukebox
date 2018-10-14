@@ -279,6 +279,7 @@ echo
 echo
 
 function killterm {
+    set +x
     echo
     echo "This console is now disabled."
     echo "You can still use another TTY to login as another user."
