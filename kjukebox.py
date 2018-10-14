@@ -9,7 +9,7 @@ towards lesser-played tracks.
 
 Position display inside tracks and seeking is currently not possible.
 """
-__version__ = "1.0.5"
+__version__ = "1.0.6"
 __author__ = "Martin Fiedler <keyj@emphy.de>"
 
 import sys, os, re, argparse, random, collections, math
@@ -158,13 +158,13 @@ def setup_player(name=None, fullscreen=True):
 StatusFont = dict(zip((
 '0'    ,'1'  ,'2'    ,'3'    ,'4'    ,'5'    ,'6'    ,'7'    ,'8'    ,'9'    ,'.' ,':' ,'http://'
 ,'\0'), zip(*(line.split('j') for line in unicode(r'''
-  ###  j  #  j  ###  j ##### j   #   j ##### j  ###  j ##### j  ###  j  ###  j   j   j #      #   #             #  # j
- #   # j ##  j #   # j    #  j  #    j #     j #     j #   # j #   # j #   # j   j   j #      #   #             #  # j
- #   # j  #  j    #  j  ###  j #  #  j ####  j ####  j    #  j  ###  j #   # j   j # j # ##  ### ### ###  # #  #  #  j
- #   # j  #  j   #   j     # j ##### j     # j #   # j   #   j #   # j  #### j   j   j ##  #  #   #  #  #      #  #  j
- #   # j  #  j  #    j #   # j    #  j #   # j #   # j   #   j #   # j     # j   j   j #   #  #   #  ###      #  #   j
-  ###  j ### j ##### j  ###  j    #  j  ###  j  ###  j   #   j  ###  j  ###  j # j # j #   #   #   # #    # # #  #   j
-       j     j       j       j       j       j       j       j       j       j   j   j               #               j
+  ###  j  #  j  ###  j ##### j   #   j ##### j  ###  j ##### j  ###  j  ###  j   j   j #      #   #           #  # j
+ #   # j ##  j #   # j    #  j  #    j #     j #     j #   # j #   # j #   # j   j   j #      #   #           #  # j
+ #   # j  #  j    #  j  ###  j #  #  j ####  j ####  j    #  j  ###  j #   # j   j # j # ##  ### ### ###  #  #  #  j
+ #   # j  #  j   #   j     # j ##### j     # j #   # j   #   j #   # j  #### j   j   j ##  #  #   #  #  #    #  #  j
+ #   # j  #  j  #    j #   # j    #  j #   # j #   # j   #   j #   # j     # j   j   j #   #  #   #  ###    #  #   j
+  ###  j ### j ##### j  ###  j    #  j  ###  j  ###  j   #   j  ###  j  ###  j # j # j #   #   #   # #    # #  #   j
+       j     j       j       j       j       j       j       j       j       j   j   j               #             j
 '''.replace('\r', '').strip('\n')).replace('#', unichr(0x2592)).split('\n')))))
 StatusFontHeight = len(StatusFont.values()[0])
 
