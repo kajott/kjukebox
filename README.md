@@ -1,6 +1,6 @@
 # Video Jukebox
 
-`kjukebox` plays videos in a specified directory in fullscreen using some standard media player application (MPV, VLC, MPC-HC, or OMXPlayer on Raspberry Pi). Its main purpose is automated playback in random order, but playlists can also be specified manuelly using the built-in web interface. A text-based announcement screen is shown between videos.
+`kjukebox` plays videos in a specified directory in fullscreen using some standard media player application (MPV, VLC, MPC-HC, or OMXPlayer on Raspberry Pi). Its main purpose is automated playback in random order, but playlists can also be specified manually using the built-in web interface. A text-based announcement screen is shown between videos.
 
 
 
@@ -39,7 +39,7 @@ wget https://raw.githubusercontent.com/kajott/kjukebox/master/kjukebox_install.s
 
 #### Configuration and content installation
 
-Review the configuration file (`/srv/jukebox/config/config.txt`, or `JukeboxConfig/config.txt` on the FAT partition if the SD card was set up appropriately), and copy video files into `/srv/jukebox/content` or the `JukeboxContent` directory of the SD card's FAT partition (if used). If you enabled Samba write access during jukebox instalation, videos can also be copied to the card over the network.
+Review the configuration file (`/srv/jukebox/config/config.txt`, or `JukeboxConfig/config.txt` on the FAT partition if the SD card was set up appropriately), and copy video files into `/srv/jukebox/content` or the `JukeboxContent` directory of the SD card's FAT partition (if used). If you enabled Samba write access during jukebox installation, videos can also be copied to the card over the network.
 
 Video files must use H.264 Baseline, Main or High Profile up to 1080p resolution. Some slight (and safe) overclocking is applied to make 1080p60 work to some extent, but perfect playback is only guaranteed up to 1080p30 or 720p60.
 
